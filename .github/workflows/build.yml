@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -19,14 +19,24 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Unzip project
-        run: unzip -o IsoBurner.zip
+      - name: Show repo files
+        run: ls -R . | grep -v '^./.git' | head -60
+
+      - name: Unzip any zip files
+        run: |
+          find . -name '*.zip' -not -path './.git/*' | while read -r z; do unzip -o "$z" -d "$GITHUB_WORKSPACE"; done
+
+      - name: Find project
+        run: |
+          S=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
+          if [ -z "$S" ]; then echo "No Android project found in repo"; exit 1; fi
+          echo "PROJ=$(dirname "$S")" >> $GITHUB_ENV
 
       - name: Build debug APK
-        working-directory: IsoBurner
+        working-directory: ${{ env.PROJ }}
         run: gradle assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
           name: IsoBurner-apk
-          path: IsoBurner/app/build/outputs/apk/debug/app-debug.apk
+          path: "**/app-debug.apk"
